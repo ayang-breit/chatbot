@@ -1,40 +1,31 @@
 from flask import Flask, request, jsonify
-from langchain_community.utilities import SQLDatabase
-from langchain_community.agent_toolkits import create_sql_agent
-from langchain_openai import ChatOpenAI
+from langchain_anthropic import ChatAnthropic
 from langchain.agents import Tool, AgentExecutor, create_react_agent
-from dropbox_tool import read_dropbox_file
+from langchain.prompts import PromptTemplate
+import domain.dropbox.dropbox as dropbox
+import core.config as config
 
 app = Flask(__name__)
 
-# 1. Connect to SQL Server
-# Note: Adjust the driver name based on your system (e.g., 'ODBC Driver 17 for SQL Server')
-db_uri = "mssql+pyodbc://username:password@server_name/db_name?driver=ODBC+Driver+17+for+SQL+Server"
-db = SQLDatabase.from_uri(db_uri)
+llm = ChatAnthropic(
+    model="claude-opus-5-5",
+    temperature=0,
+    anthropic_api_key=config.read_encrypted_flag('claude_api_key')
+)
 
-# 2. Define the LLM
-llm = ChatOpenAI(model="gpt-4", temperature=0, openai_api_key="your_openai_key")
-
-# 3. Create Tools for the Agent
-dropbox_tool = Tool(
+dropbox_read_tool = Tool(
     name="DropboxFileReader",
-    func=read_dropbox_file,
+    func=dropbox.read_dropbox_file,
     description="Useful for reading the contents of files stored in Dropbox. Input should be the file path."
 )
 
-# We use LangChain's built-in SQL toolkit alongside our custom Dropbox tool
-sql_agent = create_sql_agent(llm=llm, db=db, verbose=True)
-
-sql_tool = Tool(
-    name="SQLDatabaseQuery",
-    func=sql_agent.run,
-    description="Useful for querying the SQL Server database to answer questions about structured data."
+dropbox_list_tool = Tool(
+    name="DropboxFileList",
+    func=dropbox.list_dropbox_directory,
+    description="Useful for listing contents of folders stored in Dropbox. Input should be the file path."
 )
 
-tools = [dropbox_tool, sql_tool]
-
-# 4. Initialize the Agent
-from langchain.prompts import PromptTemplate
+tools = [dropbox_read_tool, dropbox_list_tool]
 
 prompt = PromptTemplate.from_template(
     "You are a helpful assistant. Use the tools provided to answer the user's questions.\n"
@@ -46,8 +37,6 @@ prompt = PromptTemplate.from_template(
 agent = create_react_agent(llm, tools, prompt)
 agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
 
-
-# 5. Create the Flask Endpoint
 @app.route('/chat', methods=['POST'])
 def chat():
     data = request.json
@@ -62,6 +51,5 @@ def chat():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
 if __name__ == '__main__':
-    app.run(port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True)
