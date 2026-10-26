@@ -1,15 +1,15 @@
 import domain.dropbox.dropbox as dropbox
 import core.config as config
-from flask import Flask, request, jsonify
+import prod.html as html
+from flask import Flask, request, jsonify, render_template, render_template_string
 from langchain_anthropic import ChatAnthropic
 from langchain_core.tools import Tool
-from langgraph.prebuilt import create_react_agent
+from langchain.agents import create_agent
 
 app = Flask(__name__)
 
 llm = ChatAnthropic(
     model="claude-opus-5-5",
-    temperature=0,
     anthropic_api_key=config.read_encrypted_flag('claude_api_key')
 )
 
@@ -26,8 +26,14 @@ dropbox_list_tool = Tool(
 )
 
 tools = [dropbox_read_tool, dropbox_list_tool]
-agent_executor = create_react_agent(llm, tools)
+agent_executor = create_agent(llm, tools)
 
+# 2. Add this new route to serve the web UI
+@app.route('/', methods=['GET'])
+def index():
+    return render_template_string(html.INDEX)
+
+# This remains exactly the same
 @app.route('/chat', methods=['POST'])
 def chat():
     data = request.json
@@ -37,7 +43,6 @@ def chat():
         return jsonify({"error": "Message is required"}), 400
 
     try:
-        # LangGraph uses a standardized messages array
         response = agent_executor.invoke({
             "messages": [
                 ("system", "You are a helpful assistant. Use the tools provided to answer the user's questions."),
@@ -45,7 +50,6 @@ def chat():
             ]
         })
 
-        # The final answer is the content of the last message in the chain
         final_answer = response["messages"][-1].content
         return jsonify({"response": final_answer})
 
