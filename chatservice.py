@@ -1,9 +1,9 @@
-from flask import Flask, request, jsonify
-from langchain_anthropic import ChatAnthropic
-from langchain.agents import Tool, AgentExecutor, create_react_agent
-from langchain.prompts import PromptTemplate
 import domain.dropbox.dropbox as dropbox
 import core.config as config
+from flask import Flask, request, jsonify
+from langchain_anthropic import ChatAnthropic
+from langchain_core.tools import Tool
+from langgraph.prebuilt import create_react_agent
 
 app = Flask(__name__)
 
@@ -27,15 +27,8 @@ dropbox_list_tool = Tool(
 
 tools = [dropbox_read_tool, dropbox_list_tool]
 
-prompt = PromptTemplate.from_template(
-    "You are a helpful assistant. Use the tools provided to answer the user's questions.\n"
-    "Tools: {tools}\nTool Names: {tool_names}\n"
-    "User: {input}\n"
-    "{agent_scratchpad}"
-)
-
-agent = create_react_agent(llm, tools, prompt)
-agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
+system_prompt = "You are a helpful assistant. Use the tools provided to answer the user's questions."
+agent_executor = create_react_agent(llm, tools, state_modifier=system_prompt)
 
 @app.route('/chat', methods=['POST'])
 def chat():
@@ -46,10 +39,16 @@ def chat():
         return jsonify({"error": "Message is required"}), 400
 
     try:
-        response = agent_executor.invoke({"input": user_message})
-        return jsonify({"response": response["output"]})
+        # LangGraph uses a standardized messages array
+        response = agent_executor.invoke({"messages": [("user", user_message)]})
+
+        # The final answer is the content of the last message in the chain
+        final_answer = response["messages"][-1].content
+        return jsonify({"response": final_answer})
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
