@@ -26,9 +26,7 @@ dropbox_list_tool = Tool(
 )
 
 tools = [dropbox_read_tool, dropbox_list_tool]
-
-system_prompt = "You are a helpful assistant. Use the tools provided to answer the user's questions."
-agent_executor = create_react_agent(llm, tools, state_modifier=system_prompt)
+agent_executor = create_react_agent(llm, tools)
 
 @app.route('/chat', methods=['POST'])
 def chat():
@@ -40,7 +38,12 @@ def chat():
 
     try:
         # LangGraph uses a standardized messages array
-        response = agent_executor.invoke({"messages": [("user", user_message)]})
+        response = agent_executor.invoke({
+            "messages": [
+                ("system", "You are a helpful assistant. Use the tools provided to answer the user's questions."),
+                ("user", user_message)
+            ]
+        })
 
         # The final answer is the content of the last message in the chain
         final_answer = response["messages"][-1].content
