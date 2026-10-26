@@ -28,12 +28,10 @@ dropbox_list_tool = Tool(
 tools = [dropbox_read_tool, dropbox_list_tool]
 agent_executor = create_agent(llm, tools)
 
-# 2. Add this new route to serve the web UI
 @app.route('/', methods=['GET'])
 def index():
     return render_template_string(html.INDEX)
 
-# This remains exactly the same
 @app.route('/chat', methods=['POST'])
 def chat():
     data = request.json
@@ -50,7 +48,17 @@ def chat():
             ]
         })
 
-        final_answer = response["messages"][-1].content
+        raw_content = response["messages"][-1].content
+
+        if isinstance(raw_content, list):
+            final_answer = "".join([
+                block.get("text", "")
+                for block in raw_content
+                if isinstance(block, dict) and block.get("type") == "text"
+            ])
+        else:
+            final_answer = str(raw_content)
+
         return jsonify({"response": final_answer})
 
     except Exception as e:
