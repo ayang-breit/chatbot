@@ -36,7 +36,7 @@ table_descriptions = {
     "tblMetricsString": "Contains daily estimates and market data for every ticker in our universe. This table stores the metrics which are strings. MetricIDs are described in tblMetricIDs",
     "tblTickers": "The security master. Contains groupings and identifiers for everything which is in the universe",
     "tblPBRs": "PBRs are Books that PMs can manage. This shows GMV and Net Targets. ",
-    "tblPBRs_Tickers": "Shows the tickers which are allowed in each PBR ",
+    "tblPBR_Tickers": "Shows the tickers which are allowed in each PBR ",
     "viewUpcomingEarnings": "Shows upcoming earnings dates for tickers in our universe",
     "tblMarketing_Company": "Shows the potential investors we have spoken to. ",
     "tblMarketing_Contacts": "Shows the contact information of the investors we have spoken to. ",
@@ -51,7 +51,8 @@ table_descriptions = {
 db = SQLDatabase.from_uri(
     query.URI,
     custom_table_info=table_descriptions,
-    include_tables=sorted(table_descriptions.keys())
+    include_tables=sorted(table_descriptions.keys()),
+    view_support=True
 )
 
 sql_toolkit = SQLDatabaseToolkit(db=db, llm=llm)
