@@ -1,10 +1,12 @@
 import domain.dropbox.dropbox as dropbox
 import core.config as config
-import prod.html as html
 from flask import Flask, request, jsonify, render_template, render_template_string
 from langchain_anthropic import ChatAnthropic
 from langchain_core.tools import Tool
 from langchain.agents import create_agent
+from langgraph.checkpoint.memory import MemorySaver
+import datetime
+import json
 
 app = Flask(__name__)
 
@@ -26,30 +28,36 @@ dropbox_list_tool = Tool(
 )
 
 tools = [dropbox_read_tool, dropbox_list_tool]
-agent_executor = create_agent(llm, tools)
 
-@app.route('/', methods=['GET'])
-def index():
-    return render_template_string(html.INDEX)
+memory = MemorySaver()
+agent_executor = create_agent(llm, tools, checkpointer=memory)
 
-@app.route('/chat', methods=['POST'])
+@app.route('/api/chat', methods=['POST'])
 def chat():
     data = request.json
     user_message = data.get("message")
+    session_id = data.get("session_id")
 
-    if not user_message:
-        return jsonify({"error": "Message is required"}), 400
+    if not user_message or not session_id:
+        return jsonify({"error": "Message and session_id are required"}), 400
 
     try:
-        response = agent_executor.invoke({
-            "messages": [
-                ("system", "You are a helpful assistant. Use the tools provided to answer the user's questions."),
-                ("user", user_message)
-            ]
-        })
+        config = {"configurable": {"thread_id": session_id}}
+
+        messages_payload = []
+        if not memory.get(config):
+            messages_payload.append(
+                ("system", "You are a helpful assistant. Use the tools provided to answer the user's questions.")
+            )
+
+        messages_payload.append(("user", user_message))
+
+        response = agent_executor.invoke(
+            {"messages": messages_payload},
+            config=config
+        )
 
         raw_content = response["messages"][-1].content
-
         if isinstance(raw_content, list):
             final_answer = "".join([
                 block.get("text", "")
@@ -63,7 +71,3 @@ def chat():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
