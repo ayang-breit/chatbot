@@ -6,6 +6,7 @@ from langchain_community.utilities import SQLDatabase
 from langchain_core.tools import Tool
 from langgraph.checkpoint.memory import MemorySaver
 
+import datetime
 import core.config as config
 import core.dropbox as dropbox
 import core.query as query
@@ -72,6 +73,13 @@ tools = [dropbox_read_tool, dropbox_list_tool] + sql_tools
 
 memory = MemorySaver()
 agent_executor = create_agent(llm, tools, checkpointer=memory)
+
+@app.route('/health', methods=['GET'])
+def health_check():
+    return jsonify({
+        "status": "healthy",
+        "timestamp": datetime.datetime.now().isoformat()
+    }), 200
 
 @app.route('/api/chat', methods=['POST'])
 def chat():
