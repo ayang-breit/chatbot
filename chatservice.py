@@ -40,8 +40,10 @@ table_descriptions = {
     "tblMarketing_Company": "Shows the potential investors we have spoken to. ",
     "tblMarketing_Contacts": "Shows the contact information of the investors we have spoken to. ",
     "tblMarketing_Notes": "Shows the historical notes from meetings with investors we have spoken to. ",
-    "tblIC_BetaPredictions": "Shows the market beta return predictions for each analyst. Return predictions are expressed by positive / negative nets.",
-    "tblIC_SectorPredictions": "Shows the market sector (group) return predictions for each analyst. Return predictions are expressed by positive / negative nets. ",
+    'tblIdeas': '''Shows ideas by analyst and date. The idea is tagged under Description. 
+IC Meeting decisions are stored here. 
+Market Beta predictions by analyst are stored under description - 'IC:Beta'. 
+Market Sector (group) return predictions by analyst are stored under description - 'IC:SectorNet' ''',
     "tblGroupIDs": "Parent key for tblGroupConstituents ",
     "tblGroupConstituents": "Shows the constituents of every group defined in tblGroupIDs. Uses startdate / enddate logic for membership",
 }
